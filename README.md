@@ -138,31 +138,6 @@ The graph-time codes allow three graph choices.
        connect node i and node j if abs(correlation(i,j)) >= threshold
 
 
-Important vectorization convention
-----------------------------------
-
-The graph-time codes use time-major stacking.
-
-For an N x T matrix y, MATLAB uses:
-
-    yVector = y(:);
-
-This stacks the data as:
-
-    node 1 at time 1
-    node 2 at time 1
-    ...
-    node N at time 1
-    node 1 at time 2
-    ...
-    node N at time T
-
-In Python, the equivalent is:
-
-    y_vector = y_noisy.reshape(-1, order="F")
-
-This is important because the graph penalty and time penalty must follow the same stacking order.
-
 
 Main parameters
 ---------------
