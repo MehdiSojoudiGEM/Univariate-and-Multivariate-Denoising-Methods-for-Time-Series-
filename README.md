@@ -5,10 +5,10 @@ This repository contains MATLAB and Python codes for estimating smooth underlyin
 
 The codes cover two settings:
 
-1. Univariate time series
+1. Univariate time series:
    A single noisy signal is denoised over time.
 
-2. Graph-time or multivariate time series
+2. Graph-time or multivariate time series:
    Several time series are observed on graph nodes and denoised jointly using both time and graph relationships.
 
 The repository includes ADMM-based implementations and CVX/CVXPY-based implementations.
