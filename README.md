@@ -249,8 +249,7 @@ How to run the codes
 MATLAB
 ------
 
-1. Install MATLAB.
-2. Install CVX if you want to run the CVX-based parts or the spline ADMM parts.
+Install CVX if you want to run the CVX-based parts or the spline ADMM parts.
 
 CVX website:
 
@@ -271,9 +270,9 @@ Then run the MATLAB codes, for example:
 Python
 ------
 
-Install Python packages using:
+Install Python packages:
 
-    pip install numpy scipy matplotlib cvxpy
+    math numpy scipy matplotlib cvxpy
 
 Then run the Python codes:
 
