@@ -65,17 +65,18 @@ Files
 
 The main files are:
 
-    2D- ADMM.m      Univariate MATLAB ADMM code
-    2D- CVX.m       Univariate MATLAB CVX code
-    3D- ADMM.m      Graph-time MATLAB ADMM code
-    3D- CVX.m       Graph-time MATLAB CVX code
-    2d-ADMM.py      Univariate Python ADMM/CVXPY code
-    3d-ADMM.py      Graph-time Python ADMM/CVXPY code
+    2D - ADMM.txt      Univariate MATLAB ADMM code 
+    2D - CVX.txt       Univariate MATLAB CVX code
+    3D - ADMM.txt      Graph-time MATLAB ADMM code
+    3D - CVX.txt       Graph-time MATLAB CVX code
+    2d - ADMM.txt      Univariate Python ADMM/CVXPY code
+    3d - ADMM.txt      Graph-time Python ADMM/CVXPY code
 
 The 2D files are for univariate time series.
 
 The 3D files are for graph-time or multivariate time series.
 
+Every single code includes both l1 trend filtering and Spline trend filtering.
 
 Graph-time setting
 ------------------
