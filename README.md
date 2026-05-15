@@ -48,7 +48,7 @@ ADMM stands for Alternating Direction Method of Multipliers. It solves difficult
 In this repository:
 
 - l1 trend filtering is solved directly by ADMM.
-- The ADMM signal update is a closed-form linear-system step.
+- The ADMM signal update is a closed-form linear system step.
 - The l1 penalty is handled by soft-thresholding.
 - The l1 ADMM part does not require CVX.
 
@@ -144,50 +144,128 @@ The graph-time codes allow three choices to connect the nodes.
 Main parameters
 ---------------
 
-Sample size (the number of observations over time):
+Sample size, i.e. the number of observations over time:
 
-    MATLAB:  params.T = 400;
-    Python:  params["T"] = 400
+    MATLAB:  params.T = 200;
+    Python:  params["T"] = 200
 
 Number of nodes, only for graph-time codes:
 
     MATLAB:  params.N = 3;
     Python:  params["N"] = 3
 
-Noise level (larger values correspond to noisier data):
+Noise level. Larger values correspond to noisier data:
 
     MATLAB:  params.noiseStd = 0.10;
     Python:  params["noise_std"] = 0.10
 
+Difference-order convention:
+
+    k = 0   first differences
+    k = 1   second differences
+    k = 2   third differences
+
 Difference orders:
 
     MATLAB:
-        params.kTrend = 1;
+        params.kGraph  = 0;
+        params.kTrend  = 1;
         params.kSpline = 1;
 
     Python:
-        params["k_trend"] = 1
+        params["k_graph"]  = 0
+        params["k_trend"]  = 1
         params["k_spline"] = 1
 
 Regularization parameters:
 
     MATLAB:
-        params.lambdaTrend = 0.001;
+        params.lambdaGraph  = 0.001;
+        params.lambdaTrend  = 0.001;
         params.lambdaSpline = 0.001;
-        params.lambdaGraph = 0.001;
 
     Python:
-        params["lambda_trend"] = 0.001
+        params["lambda_graph"]  = 0.001
+        params["lambda_trend"]  = 0.001
         params["lambda_spline"] = 0.001
-        params["lambda_graph"] = 0.001
 
 Larger regularization parameters produce smoother estimates.
 
-Knot spacing:
+Knot spacing for the spline basis:
 
     MATLAB:  params.knotSpacing = 5;
     Python:  params["knot_spacing"] = 5
 
+Graph construction options:
+
+    MATLAB:  params.graphMode = 'correlation';
+    Python:  params["graph_mode"] = "correlation"
+
+Available options:
+
+    'complete'     all node pairs are connected
+    'random'       edges are randomly selected
+    'correlation'  edges are selected based on empirical correlation
+
+Random graph probability:
+
+    MATLAB:  params.edgeProbability = 0.75;
+    Python:  params["edge_probability"] = 0.75
+
+Correlation threshold for correlation-based graph construction:
+
+    MATLAB:  params.correlationThreshold = 0.50;
+    Python:  params["correlation_threshold"] = 0.50
+
+Signal-generating function:
+
+    MATLAB:  params.signalCase = 'three_node_original';
+    Python:  params["signal_case"] = "three_node_original"
+
+Available options:
+
+    'three_node_original'
+    'smooth_sine_family'
+    'piecewise_family'
+    'custom'
+
+Method selection:
+
+    MATLAB:
+        params.methodsToRun = {'all'};
+
+    Python:
+        params["methods_to_run"] = ["all"]
+
+Available options:
+
+    'all'
+    'graph_trend_filtering_admm'
+    'graph_spline_trend_filtering_admm'
+
+ADMM parameters:
+
+    MATLAB:
+        params.rho = 1.20;
+        params.absTol = 1e-4;
+        params.relTol = 1e-2;
+        params.maxIterations = 1000;
+
+    Python:
+        params["rho"] = 1.20
+        params["abs_tol"] = 1e-4
+        params["rel_tol"] = 1e-2
+        params["max_iterations"] = 1000
+
+Spline beta-update solver:
+
+    MATLAB:  params.splineBetaUpdate = 'closed_form';
+    Python:  params["spline_beta_update"] = "closed_form"
+
+Available options:
+
+    'closed_form'
+    'cvx'
 
 Choosing the signal
 -------------------
