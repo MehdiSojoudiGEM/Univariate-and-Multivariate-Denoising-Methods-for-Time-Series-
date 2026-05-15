@@ -93,13 +93,13 @@ The methods use:
    Each node has its own time series and should be smooth over time.
 
 2. Graph structure
-   Connected nodes are encouraged to have similar fitted values at the same time.
+   The denoising procedure incorporates the connections between nodes during the estimation process, allowing the graph structure to guide the trend reconstruction over time.
 
 
 Graph construction options
 --------------------------
 
-The graph-time codes allow three graph choices.
+The graph-time codes allow three choices to connect the nodes.
 
 1. Complete graph
 
@@ -144,7 +144,7 @@ The graph-time codes allow three graph choices.
 Main parameters
 ---------------
 
-Sample size:
+Sample size (the number of observations over time):
 
     MATLAB:  params.T = 400;
     Python:  params["T"] = 400
@@ -154,7 +154,7 @@ Number of nodes, only for graph-time codes:
     MATLAB:  params.N = 3;
     Python:  params["N"] = 3
 
-Noise level:
+Noise level (larger values correspond to noisier data):
 
     MATLAB:  params.noiseStd = 0.10;
     Python:  params["noise_std"] = 0.10
