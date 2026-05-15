@@ -1,0 +1,702 @@
+# green_bond_graph_spline_trend_filtering.py
+# ------------------------------------------------------------
+# Python conversion of your MATLAB greenium trend/spline code.
+# Main change: the bond-connection matrix is no longer read from
+# Huge_Green_1.xlsx, ..., Huge_Green_7.xlsx.
+# Instead, it is created using the graph idea from your paper:
+#   1. complete graph
+#   2. random graph
+#   3. correlation-based graph
+# ------------------------------------------------------------
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import cvxpy as cp
+from scipy.special import factorial
+from scipy.linalg import block_diag
+from pathlib import Path
+
+
+# ============================================================
+# 1. User inputs
+# ============================================================
+
+base_path = Path(r"C:\Users\sojou296707\OneDrive - Grenoble Ecole de Management\1-Spline\Github\Github\Real Data\New folder")
+
+green_file = base_path / "Green.xlsx"
+non_green_file = base_path / "NoNGreen.xlsx"
+dates_file = base_path / "Dates Green.xlsx"
+
+k1_green = 0          # graph polynomial order
+k2_green = 0          # time trend difference order
+k3_green = 0          # spline coefficient difference order
+
+lambda1_green = 0.5   # graph penalty
+lambda2_green = 0.5   # time trend penalty
+lambda3_green = 0.5   # spline penalty
+
+knot_length_green = 6
+
+rho_green = 1.20
+abs_tol_green = 1e-4
+rel_tol_green = 1e-2
+max_iterations_green = 1000
+
+# Graph construction option.
+# Use one of: "complete", "random", "correlation"
+graph_mode = "correlation"
+edge_probability = 0.75
+correlation_threshold = 0.50
+random_seed = 123
+
+np.random.seed(random_seed)
+
+
+# ============================================================
+# 2. Helper functions
+# ============================================================
+
+def read_excel_numeric(path):
+    """Read an Excel file as a numeric NumPy array."""
+    return pd.read_excel(path, header=None).to_numpy(dtype=float)
+
+
+def create_difference_matrix(n, order_k):
+    """
+    MATLAB equivalent of repeated first differences.
+    For order_k = 0, this gives the first-difference matrix.
+    """
+    if order_k < 0:
+        raise ValueError("The difference order must be nonnegative.")
+    if order_k + 1 >= n:
+        raise ValueError("The difference order is too high for this sample size.")
+
+    eye_n = np.eye(n)
+    return np.diff(eye_n, n=order_k + 1, axis=0)
+
+
+def create_cubic_bspline_design(t, extended_knots):
+    """
+    Direct Python translation of your MATLAB cubic B-spline basis construction.
+    t is assumed to be a one-dimensional array, e.g. [1, 2, ..., T].
+    """
+    t = np.asarray(t)
+    number_of_observations = len(t)
+    number_of_intervals = len(extended_knots) - 1
+
+    b0 = np.zeros((number_of_observations, number_of_intervals))
+
+    for i in range(number_of_observations):
+        for j in range(number_of_intervals):
+            if extended_knots[j] <= t[i] < extended_knots[j + 1]:
+                b0[i, j] = 1.0
+
+    b1 = np.zeros_like(b0)
+    for i in range(number_of_observations):
+        for j in range(1, number_of_intervals):
+            denom1 = extended_knots[j] - extended_knots[j - 1]
+            denom2 = extended_knots[j + 1] - extended_knots[j]
+
+            first_term = ((t[i] - extended_knots[j - 1]) / denom1) * b0[i, j - 1]
+            second_term = ((extended_knots[j + 1] - t[i]) / denom2) * b0[i, j]
+            b1[i, j] = first_term + second_term
+
+    b2 = np.zeros_like(b0)
+    for i in range(number_of_observations):
+        for j in range(2, number_of_intervals):
+            denom1 = extended_knots[j] - extended_knots[j - 2]
+            denom2 = extended_knots[j + 1] - extended_knots[j - 1]
+
+            first_term = ((t[i] - extended_knots[j - 2]) / denom1) * b1[i, j - 1]
+            second_term = ((extended_knots[j + 1] - t[i]) / denom2) * b1[i, j]
+            b2[i, j] = first_term + second_term
+
+    b3 = np.zeros_like(b0)
+    for i in range(number_of_observations):
+        for j in range(3, number_of_intervals):
+            denom1 = extended_knots[j] - extended_knots[j - 3]
+            denom2 = extended_knots[j + 1] - extended_knots[j - 2]
+
+            first_term = ((t[i] - extended_knots[j - 3]) / denom1) * b2[i, j - 1]
+            second_term = ((extended_knots[j + 1] - t[i]) / denom2) * b2[i, j]
+            b3[i, j] = first_term + second_term
+
+    return b3[:, 3:]
+
+
+def create_incidence_matrix(y_block, graph_mode="correlation", edge_probability=0.75, correlation_threshold=0.50):
+    """
+    Create a bond-connection incidence matrix.
+
+    Parameters
+    ----------
+    y_block : array, shape N x T
+        Greenium matrix for the currently active bonds.
+    graph_mode : str
+        "complete", "random", or "correlation".
+    edge_probability : float
+        Used only when graph_mode == "random".
+    correlation_threshold : float
+        Used only when graph_mode == "correlation".
+
+    Returns
+    -------
+    incidence_matrix : array, shape E x N
+        Each active edge has one row with -1 and +1.
+    correlation_matrix : array or None
+        Correlation matrix used if graph_mode == "correlation".
+    """
+    y_block = np.asarray(y_block, dtype=float)
+    n_nodes = y_block.shape[0]
+
+    possible_edges = []
+    for source_node in range(n_nodes - 1):
+        for target_node in range(source_node + 1, n_nodes):
+            possible_edges.append((source_node, target_node))
+
+    if graph_mode.lower() == "correlation":
+        correlation_matrix = np.corrcoef(y_block)
+    else:
+        correlation_matrix = None
+
+    active_edges = []
+
+    for source_node, target_node in possible_edges:
+        if graph_mode.lower() == "complete":
+            is_active = True
+
+        elif graph_mode.lower() == "random":
+            is_active = np.random.rand() <= edge_probability
+
+        elif graph_mode.lower() == "correlation":
+            corr_value = correlation_matrix[source_node, target_node]
+            is_active = np.abs(corr_value) >= correlation_threshold
+
+        else:
+            raise ValueError("graph_mode must be 'complete', 'random', or 'correlation'.")
+
+        if is_active:
+            active_edges.append((source_node, target_node))
+
+    # Important safety: avoid an empty graph.
+    # If no edge passes the threshold, use the strongest correlation edge.
+    if len(active_edges) == 0 and n_nodes > 1:
+        if correlation_matrix is not None:
+            best_pair = None
+            best_value = -np.inf
+            for source_node, target_node in possible_edges:
+                value = abs(correlation_matrix[source_node, target_node])
+                if value > best_value:
+                    best_value = value
+                    best_pair = (source_node, target_node)
+            active_edges.append(best_pair)
+        else:
+            active_edges.append(possible_edges[0])
+
+    incidence_matrix = np.zeros((len(active_edges), n_nodes))
+    for edge_index, (source_node, target_node) in enumerate(active_edges):
+        incidence_matrix[edge_index, source_node] = -1.0
+        incidence_matrix[edge_index, target_node] = 1.0
+
+    return incidence_matrix, correlation_matrix
+
+
+def create_graph_penalty_tensor(y_block, k_graph, graph_mode, edge_probability, correlation_threshold):
+    """
+    Create the graph penalty tensor used in your MATLAB code.
+
+    Difference from the first MATLAB code:
+    Delta1_Green is created from the active bond data instead of being read from Excel.
+
+    Important case:
+    If there is only one active bond, no graph edge exists. In that case, the
+    graph tensor has zero rows and the graph penalty is skipped later.
+    """
+    n_nodes, t_length = y_block.shape
+
+    if n_nodes == 1:
+        incidence_matrix = np.zeros((0, 1))
+        correlation_matrix = np.array([[1.0]])
+        graph_tensor = np.zeros((0, t_length * n_nodes))
+        return graph_tensor, incidence_matrix, correlation_matrix
+
+    incidence_matrix, correlation_matrix = create_incidence_matrix(
+        y_block,
+        graph_mode=graph_mode,
+        edge_probability=edge_probability,
+        correlation_threshold=correlation_threshold,
+    )
+
+    if incidence_matrix.shape[0] == 0:
+        graph_tensor = np.zeros((0, t_length * n_nodes))
+        return graph_tensor, incidence_matrix, correlation_matrix
+
+    if k_graph % 2 == 0:
+        graph_block = np.linalg.matrix_power(incidence_matrix @ incidence_matrix.T, k_graph // 2) @ incidence_matrix
+    else:
+        graph_block = np.linalg.matrix_power(incidence_matrix.T @ incidence_matrix, (k_graph + 1) // 2)
+
+    block_rows = graph_block.shape[0]
+    graph_tensor = np.zeros((t_length * block_rows, t_length * n_nodes))
+
+    for time_index in range(t_length):
+        row_slice = slice(time_index * block_rows, (time_index + 1) * block_rows)
+        col_slice = slice(time_index * n_nodes, (time_index + 1) * n_nodes)
+        graph_tensor[row_slice, col_slice] = graph_block
+
+    return graph_tensor, incidence_matrix, correlation_matrix
+
+
+def soft_threshold(x, threshold):
+    return np.sign(x) * np.maximum(np.abs(x) - threshold, 0.0)
+
+
+def estimate_graph_trend_filtering_cvxpy(y_vector, graph_tensor, time_tensor,
+                                         lambda_graph, lambda_trend,
+                                         n_nodes, t_length,
+                                         k_graph, k_trend):
+    """
+    Direct CVXPY version of your final trend-filtering block.
+    This is closer to your original MATLAB CVX code than the ADMM version.
+    """
+    graph_scale = lambda_graph * (n_nodes ** k_graph) / factorial(k_graph)
+    time_scale = lambda_trend * (t_length ** k_trend) / factorial(k_trend)
+
+    alpha = cp.Variable(n_nodes * t_length)
+
+    graph_penalty_expr = 0
+    if graph_tensor.shape[0] > 0:
+        graph_penalty_expr = cp.norm1(graph_scale * graph_tensor @ alpha)
+
+    time_penalty_expr = 0
+    if time_tensor.shape[0] > 0:
+        time_penalty_expr = cp.norm1(time_scale * time_tensor @ alpha)
+
+    objective = (
+        0.5 * cp.sum_squares(y_vector - alpha)
+        + graph_penalty_expr
+        + time_penalty_expr
+    )
+
+    problem = cp.Problem(cp.Minimize(objective))
+    problem.solve(solver=cp.CLARABEL, verbose=False)
+
+    if alpha.value is None:
+        problem.solve(solver=cp.SCS, verbose=False)
+
+    return np.asarray(alpha.value).reshape(-1)
+
+
+def estimate_graph_spline_trend_filtering_admm(y_vector, b_spline, graph_tensor, time_tensor, spline_tensor,
+                                               lambda_graph, lambda_trend, lambda_spline,
+                                               n_nodes, t_length, k_graph, k_trend,
+                                               rho, abs_tol, rel_tol, max_iterations):
+    """
+    Python/CVXPY version of the graph-time spline trend filtering ADMM.
+    The r-update uses CVXPY. The beta-update uses the closed form from the paper code.
+    """
+    number_of_observations = len(y_vector)
+    number_of_spline_coefficients = b_spline.shape[1]
+
+    graph_scale = lambda_graph * (n_nodes ** k_graph) / factorial(k_graph)
+    time_scale = lambda_trend * (t_length ** k_trend) / factorial(k_trend)
+
+    graph_penalty_matrix = graph_scale * graph_tensor
+    time_penalty_matrix = time_scale * time_tensor
+
+    r = np.zeros(number_of_observations)
+    beta = np.zeros(number_of_spline_coefficients)
+    u = np.zeros(number_of_observations)
+
+    beta_system_matrix = (
+        rho * (b_spline.T @ b_spline)
+        + 2.0 * lambda_spline * (spline_tensor.T @ spline_tensor)
+    )
+
+    diagnostics = {
+        "primal_residual": [],
+        "dual_residual": [],
+        "primal_tolerance": [],
+        "dual_tolerance": [],
+    }
+
+    for iteration in range(1, max_iterations + 1):
+        beta_old = beta.copy()
+
+        r_var = cp.Variable(number_of_observations)
+
+        graph_penalty_expr = 0
+        if graph_penalty_matrix.shape[0] > 0:
+            graph_penalty_expr = cp.norm1(graph_penalty_matrix @ (y_vector - r_var))
+
+        time_penalty_expr = 0
+        if time_penalty_matrix.shape[0] > 0:
+            time_penalty_expr = cp.norm1(time_penalty_matrix @ (y_vector - r_var))
+
+        objective = (
+            0.5 * cp.sum_squares(r_var)
+            + graph_penalty_expr
+            + time_penalty_expr
+            + (rho / 2.0) * cp.sum_squares(r_var + b_spline @ beta - y_vector + u)
+        )
+
+        problem = cp.Problem(cp.Minimize(objective))
+        problem.solve(solver=cp.CLARABEL, verbose=False)
+
+        if r_var.value is None:
+            problem.solve(solver=cp.SCS, verbose=False)
+
+        if r_var.value is not None and np.all(np.isfinite(r_var.value)):
+            r = np.asarray(r_var.value).reshape(-1)
+
+        right_hand_side = rho * b_spline.T @ (y_vector - r - u)
+        beta = np.linalg.solve(beta_system_matrix, right_hand_side)
+
+        u = u + r + b_spline @ beta - y_vector
+
+        primal_residual = r + b_spline @ beta - y_vector
+        dual_residual = rho * b_spline @ (beta - beta_old)
+
+        primal_tolerance = (
+            np.sqrt(number_of_observations) * abs_tol
+            + rel_tol * max(np.linalg.norm(r), np.linalg.norm(b_spline @ beta), np.linalg.norm(y_vector))
+        )
+
+        dual_tolerance = (
+            np.sqrt(number_of_observations) * abs_tol
+            + rel_tol * np.linalg.norm(rho * u)
+        )
+
+        diagnostics["primal_residual"].append(np.linalg.norm(primal_residual))
+        diagnostics["dual_residual"].append(np.linalg.norm(dual_residual))
+        diagnostics["primal_tolerance"].append(primal_tolerance)
+        diagnostics["dual_tolerance"].append(dual_tolerance)
+
+        if np.linalg.norm(primal_residual) <= primal_tolerance and np.linalg.norm(dual_residual) <= dual_tolerance:
+            break
+
+    diagnostics["iterations"] = iteration
+    diagnostics["beta"] = beta
+    diagnostics["residual"] = r
+
+    spline_fit_vector = b_spline @ beta
+    return spline_fit_vector, diagnostics
+
+
+# ============================================================
+# 3. Read and prepare data
+# ============================================================
+
+y_green_full = read_excel_numeric(green_file)
+y_non_green_full_initial = read_excel_numeric(non_green_file)
+
+new_order = [2, 3, 1, 4, 5, 7, 6, 8]
+new_order_python = [index - 1 for index in new_order]
+y_non_green_full_initial = y_non_green_full_initial[new_order_python, :]
+
+number_of_green_dates = y_green_full.shape[1]
+number_of_non_green_dates = y_non_green_full_initial.shape[1]
+
+y_non_green_full = y_non_green_full_initial[:, number_of_non_green_dates - number_of_green_dates:]
+
+yprim_green_full = 100.0 * (y_green_full - y_non_green_full)
+
+# First nonzero index in each row, equivalent to MATLAB find(..., 'first').
+zero_end_idx_green = []
+for row_index in range(yprim_green_full.shape[0]):
+    nonzero_indices = np.where(yprim_green_full[row_index, :] != 0)[0]
+    zero_end_idx_green.append(nonzero_indices[0] if len(nonzero_indices) > 0 else None)
+
+# MATLAB indices. In Python slicing, the end index below is exclusive,
+# so we convert carefully later.
+j_k_final_matlab = np.array([1, 43, 173, 253, 507, 672, 705, 927, 1097])
+j_k_final_python = j_k_final_matlab - 1
+
+green_isins = [
+    "DE0001030708",
+    "DE0001030716",
+    "DE0001030724",
+    "DE0001030732",
+    "DE0001030740",
+    "DE000BU3Z005",
+    "DE0001030757",
+    "DE000BU35025",
+]
+
+non_green_isins = [
+    "DE0001102507",
+    "DE0001141828",
+    "DE0001102481",
+    "DE0001102564",
+    "DE0001141869",
+    "DE0001102614",
+    "DE000BU2Z007",
+    "DE000BU25026",
+]
+
+# Read dates.
+# For safety, the code uses a clean numeric time index for plotting.
+# The Excel date column is still read and parsed, but invalid dates will not stop the plots.
+raw_dates_green_final = pd.read_excel(dates_file, header=None).iloc[:, 0]
+
+# First try normal Excel/date parsing.
+dates_green_final = pd.to_datetime(raw_dates_green_final, errors="coerce")
+
+# If many dates are still missing, try day-first parsing.
+if dates_green_final.isna().mean() > 0.10:
+    dates_green_final = pd.to_datetime(raw_dates_green_final, dayfirst=True, errors="coerce")
+
+# If the date file contains Excel serial numbers, try Excel-origin conversion.
+if dates_green_final.isna().mean() > 0.10:
+    numeric_dates = pd.to_numeric(raw_dates_green_final, errors="coerce")
+    dates_green_final = pd.to_datetime(numeric_dates, unit="D", origin="1899-12-30", errors="coerce")
+
+# Keep dates and data with the same length.
+number_of_time_points = yprim_green_full.shape[1]
+if len(dates_green_final) > number_of_time_points:
+    dates_green_final = dates_green_final.iloc[:number_of_time_points].reset_index(drop=True)
+elif len(dates_green_final) < number_of_time_points:
+    yprim_green_full = yprim_green_full[:, :len(dates_green_final)]
+    number_of_time_points = yprim_green_full.shape[1]
+
+# Numeric time axis. This avoids Matplotlib errors if some dates are NaT.
+time_axis = np.arange(number_of_time_points)
+
+full_spline = np.full_like(yprim_green_full, np.nan, dtype=float)
+full_trend = np.full_like(yprim_green_full, np.nan, dtype=float)
+
+all_diagnostics = []
+all_graphs = []
+
+
+# ============================================================
+# 4. Main loop over expanding active bond sets
+# ============================================================
+
+for i_final in range(8):
+    # Active bonds: MATLAB [1], [1 2], ..., [1 ... 8]
+    j_i_final = np.arange(i_final + 1)
+
+    start_col = j_k_final_python[i_final]
+    end_col_inclusive = j_k_final_python[i_final + 1]
+    end_col_python = end_col_inclusive + 1
+
+    y_green = yprim_green_full[j_i_final, start_col:end_col_python]
+
+    n_green, t_green = y_green.shape
+    t_vector_green = np.arange(1, t_green + 1)
+
+    knots_green = np.arange(1, t_green + 1, knot_length_green)
+    knot_number_green = len(knots_green)
+
+    # --------------------------------------------------------
+    # Graph connection idea from the paper
+    # --------------------------------------------------------
+    graph_tensor_green, incidence_green, correlation_green = create_graph_penalty_tensor(
+        y_green,
+        k_graph=k1_green,
+        graph_mode=graph_mode,
+        edge_probability=edge_probability,
+        correlation_threshold=correlation_threshold,
+    )
+
+    all_graphs.append({
+        "window": i_final + 1,
+        "active_bonds": j_i_final + 1,
+        "incidence_matrix": incidence_green,
+        "correlation_matrix": correlation_green,
+    })
+
+    print(f"Window {i_final + 1}: N = {n_green}, T = {t_green}, active edges = {incidence_green.shape[0]}")
+    if correlation_green is not None:
+        print("Correlation matrix:")
+        print(np.round(correlation_green, 3))
+
+    # --------------------------------------------------------
+    # B-spline design
+    # --------------------------------------------------------
+    extended_knots_green = np.arange(
+        1 - 3 * knot_length_green,
+        t_green + 3 * knot_length_green + 1,
+        knot_length_green,
+    )
+
+    final_design_green = create_cubic_bspline_design(t_vector_green, extended_knots_green)
+
+    if final_design_green.shape[1] != knot_number_green + 2:
+        print("Warning: unexpected number of spline coefficients. Check knot construction.")
+
+    b_green = np.kron(final_design_green, np.eye(n_green))
+
+    # --------------------------------------------------------
+    # Time trend and spline penalty matrices
+    # --------------------------------------------------------
+    d_green = create_difference_matrix(t_green, k2_green)
+    d_tensor_green = np.kron(d_green, np.eye(n_green))
+
+    d_beta_green = create_difference_matrix(knot_number_green + 2, k3_green)
+    d_beta_tensor_green = np.kron(d_beta_green, np.eye(n_green))
+
+    # Time-major stacking. This matches yNoisy(:) in the paper code
+    # and reshape(y_Green', N*T, 1) in your MATLAB code.
+    yprim_green = y_green.T.reshape(-1)
+
+    # --------------------------------------------------------
+    # Spline trend filtering using ADMM
+    # --------------------------------------------------------
+    spline_fit_vector, spline_diagnostics = estimate_graph_spline_trend_filtering_admm(
+        y_vector=yprim_green,
+        b_spline=b_green,
+        graph_tensor=graph_tensor_green,
+        time_tensor=d_tensor_green,
+        spline_tensor=d_beta_tensor_green,
+        lambda_graph=lambda1_green,
+        lambda_trend=lambda2_green,
+        lambda_spline=lambda3_green,
+        n_nodes=n_green,
+        t_length=t_green,
+        k_graph=k1_green,
+        k_trend=k2_green,
+        rho=rho_green,
+        abs_tol=abs_tol_green,
+        rel_tol=rel_tol_green,
+        max_iterations=max_iterations_green,
+    )
+
+    spline_fit_matrix = spline_fit_vector.reshape(t_green, n_green).T
+
+    # --------------------------------------------------------
+    # Direct graph-time trend filtering
+    # --------------------------------------------------------
+    trend_fit_vector = estimate_graph_trend_filtering_cvxpy(
+        y_vector=yprim_green,
+        graph_tensor=graph_tensor_green,
+        time_tensor=d_tensor_green,
+        lambda_graph=lambda1_green,
+        lambda_trend=lambda2_green,
+        n_nodes=n_green,
+        t_length=t_green,
+        k_graph=k1_green,
+        k_trend=k2_green,
+    )
+
+    trend_fit_matrix = trend_fit_vector.reshape(t_green, n_green).T
+
+    full_spline[np.ix_(j_i_final, np.arange(start_col, end_col_python))] = spline_fit_matrix
+    full_trend[np.ix_(j_i_final, np.arange(start_col, end_col_python))] = trend_fit_matrix
+
+    all_diagnostics.append({
+        "window": i_final + 1,
+        "spline_iterations": spline_diagnostics["iterations"],
+        "spline_diagnostics": spline_diagnostics,
+    })
+
+
+# Replace zero original observations with NaN for plotting.
+yprim_green_full_plot = yprim_green_full.copy()
+yprim_green_full_plot[yprim_green_full_plot == 0] = np.nan
+
+
+# ============================================================
+# 5. Plotting
+# ============================================================
+
+bond_axis = np.arange(1, 9)
+combined_legend = [f"{g[-2:]}&{ng[-2:]}" for g, ng in zip(green_isins, non_green_isins)]
+
+# Surface plot: original greenium
+fig = plt.figure(figsize=(12, 7))
+ax = fig.add_subplot(111, projection="3d")
+X, Y = np.meshgrid(time_axis, bond_axis)
+surf = ax.plot_surface(X, Y, yprim_green_full_plot, cmap="jet", edgecolor="none")
+ax.set_xlabel("Time Index")
+ax.set_ylabel("Bond Index")
+ax.set_zlabel("Greenium (BPS)")
+ax.set_title("Original Greenium Surface")
+fig.colorbar(surf, ax=ax, shrink=0.5)
+plt.tight_layout()
+
+# Surface plots: trend and spline
+fig = plt.figure(figsize=(16, 7))
+
+ax1 = fig.add_subplot(121, projection="3d")
+surf1 = ax1.plot_surface(X, Y, full_trend, cmap="jet", edgecolor="none")
+ax1.set_title(f"Trend: lambda1={lambda1_green}, lambda2={lambda2_green}, k1={k1_green}, k2={k2_green}")
+ax1.set_xlabel("Time Index")
+ax1.set_ylabel("Bond Index")
+ax1.set_zlabel("Greenium (BPS)")
+fig.colorbar(surf1, ax=ax1, shrink=0.5)
+
+ax2 = fig.add_subplot(122, projection="3d")
+surf2 = ax2.plot_surface(X, Y, full_spline, cmap="jet", edgecolor="none")
+ax2.set_title(
+    f"Spline: lambda1={lambda1_green}, lambda2={lambda2_green}, lambda3={lambda3_green}, "
+    f"k1={k1_green}, k2={k2_green}, k3={k3_green}, knot={knot_length_green}"
+)
+ax2.set_xlabel("Time Index")
+ax2.set_ylabel("Bond Index")
+ax2.set_zlabel("Greenium (BPS)")
+fig.colorbar(surf2, ax=ax2, shrink=0.5)
+plt.tight_layout()
+
+# 2D line plots
+fig, axes = plt.subplots(1, 2, figsize=(16, 6), sharex=True)
+
+axes[0].plot(time_axis, full_trend.T, linewidth=2)
+axes[0].set_title(
+    f"Trend: lambda1={lambda1_green}, lambda2={lambda2_green}, "
+    f"k1={k1_green}, k2={k2_green}"
+)
+axes[0].set_xlabel("Time Index")
+axes[0].set_ylabel("Greenium (BPS)")
+axes[0].grid(True)
+axes[0].legend(combined_legend, loc="best")
+
+for row_index in range(full_trend.shape[0]):
+    valid_indices = np.where(~np.isnan(full_trend[row_index, :]))[0]
+    if len(valid_indices) > 0:
+        axes[0].axvline(
+            time_axis[valid_indices[0]],
+            linestyle="--",
+            color="gray",
+            linewidth=1,
+        )
+
+axes[1].plot(time_axis, full_spline.T, linewidth=2)
+axes[1].set_title(
+    f"Spline: lambda1={lambda1_green}, lambda2={lambda2_green}, "
+    f"lambda3={lambda3_green}, k1={k1_green}, k2={k2_green}, "
+    f"k3={k3_green}, knot={knot_length_green}"
+)
+axes[1].set_xlabel("Time Index")
+axes[1].set_ylabel("Greenium (BPS)")
+axes[1].grid(True)
+axes[1].legend(combined_legend, loc="best")
+
+for row_index in range(full_spline.shape[0]):
+    valid_indices = np.where(~np.isnan(full_spline[row_index, :]))[0]
+    if len(valid_indices) > 0:
+        axes[1].axvline(
+            time_axis[valid_indices[0]],
+            linestyle="--",
+            color="gray",
+            linewidth=1,
+        )
+
+plt.tight_layout()
+plt.show()
+
+
+# ============================================================
+# 6. Optional: export outputs
+# ============================================================
+
+output_file = base_path / "Python_Graph_Trend_Spline_Output.xlsx"
+
+with pd.ExcelWriter(output_file) as writer:
+    pd.DataFrame(yprim_green_full_plot).to_excel(writer, sheet_name="Original_Greenium", index=False, header=False)
+    pd.DataFrame(full_trend).to_excel(writer, sheet_name="Full_Trend", index=False, header=False)
+    pd.DataFrame(full_spline).to_excel(writer, sheet_name="Full_Spline", index=False, header=False)
+
+print(f"Saved output to: {output_file}")
