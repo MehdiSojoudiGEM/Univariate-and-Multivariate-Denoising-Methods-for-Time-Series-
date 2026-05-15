@@ -22,7 +22,7 @@ from pathlib import Path
 # 1. User inputs
 # ============================================================
 
-base_path = Path(r"C:\Users\sojou296707\OneDrive - Grenoble Ecole de Management\1-Spline\Github\Github\Real Data\New folder")
+base_path = Path(r"C:\Put the location of the data")
 
 green_file = base_path / "Green.xlsx"
 non_green_file = base_path / "NoNGreen.xlsx"
