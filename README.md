@@ -312,7 +312,10 @@ To run only graph-time spline trend filtering ADMM:
 How to run the codes
 --------------------
 
-MATLAB
+
+------------
+
+MATLAB Requirements
 ------
 
 Install CVX if you want to run the CVX-based parts or the spline ADMM parts.
@@ -332,7 +335,7 @@ Then run the MATLAB codes, for example:
     run('3D- CVX.m')
 
 
-Python
+Python Requirements
 ------
 
 Install Python packages:
@@ -362,35 +365,20 @@ For graph-time codes, the output is usually a 3D plot:
     z-axis = signal value
 
 
-Requirements
-------------
-
-MATLAB:
-
-    MATLAB
-    CVX, only for CVX-based parts
-
-Python:
-
-    numpy
-    scipy
-    matplotlib
-    cvxpy
-
 
 Notes
 -----
 
 - Use ADMM versions when scalability is important.
-- Use CVX or CVXPY versions when clarity and direct convex formulation are preferred.
+- Use CVX or CVXPY versions for smaller datasets when faster direct convex optimization is preferred.
 - Larger regularization parameters produce smoother estimates.
 - Larger difference orders produce smoother estimates.
-
+- 
 
 Real-data green bond application
 --------------------------------
 
-The file green_bond_graph_spline_trend_filtering.py applies the graph-time trend filtering and spline trend filtering methods to real green bond data.
+The file Greenium.txt applies the multiple trend filtering and multiple Spline trend filtering methods to real green bond data. The code is written in Python.
 
 The code uses three Excel files:
 
@@ -404,26 +392,11 @@ The greenium is computed as:
 
 The code follows an expanding-window structure. At the beginning, only one bond is active. Then, as more bonds become available, the number of active bonds increases from 1 to 8.
 
-The active windows are defined by:
 
-    j_k_final_matlab = [1, 43, 173, 253, 507, 672, 705, 927, 1097]
 
-For each window, the code:
-
-1. Selects the active bonds.
-2. Builds the graph between bonds.
-3. Constructs the cubic B-spline design matrix.
-4. Constructs the time and spline difference matrices.
-5. Estimates the graph-time spline trend using ADMM and CVXPY.
-6. Estimates the graph-time trend using a direct CVXPY formulation.
-7. Stores the results in full matrices.
-
-Unlike the original MATLAB code, the Python version does not read the graph connection matrices from external Excel files such as Huge_Green_1.xlsx, ..., Huge_Green_7.xlsx.
-
-Instead, the graph is created directly from the data using one of three options:
+The connections between the bonds are directly from the data using one of two options:
 
     graph_mode = "complete"
-    graph_mode = "random"
     graph_mode = "correlation"
 
 The default option is:
@@ -431,23 +404,9 @@ The default option is:
     graph_mode = "correlation"
     correlation_threshold = 0.50
 
-This means that two bonds are connected if the absolute empirical correlation between their greenium series is at least 0.50.
+This means that two bonds are connected if the absolute correlation between their greenium series is at least 0.50.
 
-The code also handles the first window, where only one bond is active. Since a single bond has no graph edge, the graph penalty is skipped automatically for that window.
-
-For plotting, the code uses a numeric time index instead of calendar dates. This avoids errors when the date file contains missing or incorrectly parsed dates.
-
-The output file is:
-
-    Python_Graph_Trend_Spline_Output.xlsx
-
-It contains three sheets:
-
-    Original_Greenium
-    Full_Trend
-    Full_Spline
-
-The script also produces:
+The script produces:
 
 1. A 3D surface plot of the original greenium.
 2. A 3D surface plot of the estimated trend.
