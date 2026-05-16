@@ -99,7 +99,7 @@ The methods use:
 Graph construction options
 --------------------------
 
-The graph-time codes allow three choices to connect the nodes.
+The graph-time codes allow two choices to connect the nodes.
 
 1. Complete graph
 
@@ -111,19 +111,8 @@ The graph-time codes allow three choices to connect the nodes.
    Python:
        params["graph_mode"] = "complete"
 
-2. Random graph
 
-   Each possible edge is included randomly with a chosen probability.
-
-   MATLAB:
-       params.graphMode = 'random';
-       params.edgeProbability = 0.75;
-
-   Python:
-       params["graph_mode"] = "random"
-       params["edge_probability"] = 0.75
-
-3. Correlation-based graph
+2. Correlation-based graph
 
    Two nodes are connected if the absolute empirical correlation between their observed time series is above a threshold.
 
@@ -154,28 +143,45 @@ Number of nodes, only for graph-time codes:
     MATLAB:  params.N = 3;
     Python:  params["N"] = 3
 
-Noise level. Larger values correspond to noisier data:
+Noise level: Larger values correspond to noisier data:
 
     MATLAB:  params.noiseStd = 0.10;
     Python:  params["noise_std"] = 0.10
 
-Difference-order convention:
+Difference-order convention
+---------------------------
+
+The parameter k controls the order of the finite-difference operator used in
+the regularization terms:
 
     k = 0   first differences
     k = 1   second differences
     k = 2   third differences
 
-Difference orders:
+Default parameter values
+------------------------
 
-    MATLAB:
-        params.kGraph  = 0;
-        params.kTrend  = 1;
-        params.kSpline = 1;
+MATLAB:
+    params.kGraph  = 0;
+    params.kTrend  = 1;
+    params.kSpline = 1;
 
-    Python:
-        params["k_graph"]  = 0
-        params["k_trend"]  = 1
-        params["k_spline"] = 1
+Python:
+    params["k_graph"]  = 0
+    params["k_trend"]  = 1
+    params["k_spline"] = 1
+
+Interpretation of the defaults
+------------------------------
+
+    kGraph  = 0
+        First-order graph differences across connected nodes.
+
+    kTrend  = 1
+        Second-order temporal differences for trend filtering.
+
+    kSpline = 1
+        Second-order differences for spline regularization.
 
 Regularization parameters:
 
