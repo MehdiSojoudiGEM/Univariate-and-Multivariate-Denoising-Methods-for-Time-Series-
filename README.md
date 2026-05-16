@@ -148,32 +148,27 @@ Noise level: Larger values correspond to noisier data:
     MATLAB:  params.noiseStd = 0.10;
     Python:  params["noise_std"] = 0.10
 
-Difference-order convention
----------------------------
 
-The parameter k controls the order of the finite-difference operator used in
+Difference-order convention: The parameter k controls the order of the finite-difference operator used in
 the regularization terms:
 
     k = 0   first differences
     k = 1   second differences
     k = 2   third differences
 
-Default parameter values
-------------------------
+Default parameter values for the difference-order convention:
 
-MATLAB:
-    params.kGraph  = 0;
-    params.kTrend  = 1;
-    params.kSpline = 1;
+    MATLAB:
+        params.kGraph  = 0;
+        params.kTrend  = 1;
+        params.kSpline = 1;
 
-Python:
-    params["k_graph"]  = 0
-    params["k_trend"]  = 1
-    params["k_spline"] = 1
+    Python:
+        params["k_graph"]  = 0
+        params["k_trend"]  = 1
+        params["k_spline"] = 1
 
-Interpretation of the defaults
-------------------------------
-
+For example: 
     kGraph  = 0
         First-order graph differences across connected nodes.
 
@@ -182,6 +177,8 @@ Interpretation of the defaults
 
     kSpline = 1
         Second-order differences for spline regularization.
+
+
 
 Regularization parameters:
 
