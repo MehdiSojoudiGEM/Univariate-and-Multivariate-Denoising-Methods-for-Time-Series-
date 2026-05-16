@@ -254,18 +254,8 @@ Available options:
         params["rel_tol"] = 1e-2
         params["max_iterations"] = 1000
 
-Spline beta-update solver:
 
-    MATLAB:  params.splineBetaUpdate = 'closed_form';
-    Python:  params["spline_beta_update"] = "closed_form"
-
-Available options:
-
-    'closed_form'
-    'cvx'
-
-Choosing the signal
--------------------
+11- Choosing the signal
 
 For univariate codes, typical signal options are:
 
@@ -292,8 +282,7 @@ For a custom graph-time MATLAB signal, the function must return an N x T matrix:
     params.customSignal = @(x, N, T) repmat(sin(2 * pi * x), N, 1);
 
 
-Choosing the method
--------------------
+12- Choosing the method
 
 To run all methods:
 
