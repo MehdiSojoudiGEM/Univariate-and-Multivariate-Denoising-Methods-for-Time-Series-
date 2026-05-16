@@ -1,17 +1,3 @@
-"""
-Univariate Trend Estimation using l1 Trend Filtering and Spline Trend Filtering and 
-
-This script estimates the underlying trend of a noisy univariate time series using:
-
-1. l1 Trend Filtering
-2. Spline Trend Filtering
-
-
-Both estimators are solved using an ADMM-type algorithm.
-
-The spline trend filtering step uses CVXPY because the original MATLAB
-implementation relies on CVX inside the ADMM iterations.
-"""
 
 import numpy as np
 import matplotlib.pyplot as plt
