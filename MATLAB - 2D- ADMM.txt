@@ -1,29 +1,3 @@
-% Goal:
-%   Estimate the underlying trend of a noisy univariate time series using:
-%       1. l1 trend filtering solved by ADMM
-%       2. spline trend filtering solved by ADMM
-%
-% Important note:
-%   - The l1 trend filtering estimator is solved directly by ADMM.
-%   - The spline trend filtering estimator is also written as an ADMM scheme,
-%     but its residual update is solved with CVX because that subproblem
-%     contains an l1 trend-filtering penalty.
-%
-% Requirements:
-%   - CVX is required for the spline trend filtering ADMM residual update.
-%   - The l1 trend filtering ADMM part does not require CVX.
-%
-% CVX website:
-%   http://cvxr.com/cvx/
-%
-% Main features:
-%   - Clean input section
-%   - Built-in signal-generating functions
-%   - Option to define a custom signal
-%   - Option to run all methods or only one method
-%   - Local helper functions for better readability and reuse
-% -------------------------------------------------------------------------
-
 clear
 clc
 close all
@@ -33,15 +7,15 @@ close all
 % -------------------------------------------------------------------------
 
 params.T = 400;                    % Length of the time series
-params.noiseStd = 0.10;            % Standard deviation of Gaussian noise
+params.noiseStd = 0.15;            % Standard deviation of Gaussian noise
 
-params.kTrend = 2;                 % Trend-filtering order parameter
-params.kSpline = 2;                % Spline-coefficient penalty order
+params.kTrend = 1;                 % Trend-filtering order parameter
+params.kSpline = 1;                % Spline-coefficient penalty order
 
 params.knotSpacing = 10;           % Distance between two adjacent knots
 
-params.lambdaTrend = 0.00001;      % Tuning parameter for trend filtering
-params.lambdaSpline = 0.00001;     % Tuning parameter for spline smoothness
+params.lambdaTrend = 0.001;      % Tuning parameter for trend filtering
+params.lambdaSpline = 0.001;     % Tuning parameter for spline smoothness
 
 params.rho = 1.20;                 % ADMM penalty parameter
 params.absTol = 1e-4;              % Absolute stopping tolerance
@@ -67,20 +41,9 @@ params.customSignal = @(x) 0.50 * sin(4 * pi * x) + 0.25 * x;
 %   {'spline_trend_filtering_admm'}
 params.methodsToRun = {'all'};
 
-% Choose how to solve the beta update in the spline ADMM algorithm.
-% Available options:
-%   'closed_form' : faster and recommended
-%   'cvx'         : closer to the original code, but slower
-params.splineBetaUpdate = 'closed_form';
-
-% Set the random seed for reproducibility.
-params.randomSeed = 123;
-
 %% ------------------------------------------------------------------------
 % 2. Generate the noisy time series
 % -------------------------------------------------------------------------
-
-rng(params.randomSeed)
 
 t = (1:params.T)';
 x = linspace(0, 1, params.T)';
@@ -95,7 +58,7 @@ yNoisy = yTrue + params.noiseStd * randn(params.T, 1);
 %   k = 0 gives the first-difference matrix.
 %   k = 1 gives the second-difference matrix.
 %   k = 2 gives the third-difference matrix.
-% This is the same convention as in the original code.
+
 
 DTrend = createDifferenceMatrix(params.T, params.kTrend);
 
@@ -113,7 +76,6 @@ B = createCubicBSplineDesign(t, extendedKnots);
 
 numberOfSplineCoefficients = size(B, 2);
 
-% This should match numberOfKnots + 2 for this knot construction.
 if numberOfSplineCoefficients ~= numberOfKnots + 2
     warning('Unexpected number of spline coefficients. Check knot construction.')
 end
@@ -143,6 +105,7 @@ splineDiagnostics = [];
 % -------------------------------------------------------------------------
 
 if runTrendFilteringADMM
+
     [trendFilteringFit, trendDiagnostics] = estimateTrendFilteringADMM( ...
         yNoisy, ...
         DTrend, ...
@@ -163,6 +126,7 @@ end
 % -------------------------------------------------------------------------
 
 if runSplineTrendFilteringADMM
+
     [splineTrendFilteringFit, splineDiagnostics] = estimateSplineTrendFilteringADMM( ...
         yNoisy, ...
         B, ...
@@ -175,8 +139,7 @@ if runSplineTrendFilteringADMM
         params.rho, ...
         params.absTol, ...
         params.relTol, ...
-        params.maxIterations, ...
-        params.splineBetaUpdate);
+        params.maxIterations);
 
     fprintf('Spline trend filtering ADMM finished after %d iterations.\n', ...
         splineDiagnostics.iterations)
@@ -186,18 +149,20 @@ end
 % 8. Plot the results
 % -------------------------------------------------------------------------
 
-figure('Color', 'w', 'Position', [100 100 1400 450])
+figure('Color', 'w', 'Position', [100 100 1400 450]);
 
 plotCounter = 1;
 numberOfPlots = 1 + runTrendFilteringADMM + runSplineTrendFilteringADMM;
 
-% True signal and noisy observations
 subplot(1, numberOfPlots, plotCounter)
+
 plot(t, yTrue, 'k', 'LineWidth', 1.5)
 hold on
+
 plot(t, yNoisy, 'o', ...
     'MarkerEdgeColor', [0.4 0.4 0.4], ...
     'MarkerSize', 4)
+
 grid on
 legend('Exact Signal', 'Noisy Signal', 'Location', 'best')
 title('True Signal and Noisy Observations')
@@ -206,37 +171,46 @@ ylabel('Signal')
 
 plotCounter = plotCounter + 1;
 
-% l1 trend filtering ADMM result
 if runTrendFilteringADMM
+
     subplot(1, numberOfPlots, plotCounter)
+
     plot(t, trendFilteringFit, 'b', 'LineWidth', 1.5)
     hold on
+
     plot(t, yNoisy, 'o', ...
         'MarkerEdgeColor', [0.4 0.4 0.4], ...
         'MarkerSize', 4)
+
     grid on
     legend('Trend Filtering ADMM', 'Noisy Signal', 'Location', 'best')
+
     title({ ...
         'l1 Trend Filtering using ADMM', ...
         ['\lambda_1 = ', num2str(params.lambdaTrend)], ...
         ['k_1 = ', num2str(params.kTrend)], ...
         ['Iterations = ', num2str(trendDiagnostics.iterations)]})
+
     xlabel('Time')
     ylabel('Signal')
 
     plotCounter = plotCounter + 1;
 end
 
-% Spline trend filtering ADMM result
 if runSplineTrendFilteringADMM
+
     subplot(1, numberOfPlots, plotCounter)
+
     plot(t, splineTrendFilteringFit, 'r', 'LineWidth', 1.5)
     hold on
+
     plot(t, yNoisy, 'o', ...
         'MarkerEdgeColor', [0.4 0.4 0.4], ...
         'MarkerSize', 4)
+
     grid on
     legend('Spline Trend Filtering ADMM', 'Noisy Signal', 'Location', 'best')
+
     title({ ...
         'Spline Trend Filtering using ADMM', ...
         ['\lambda_1 = ', num2str(params.lambdaTrend), ...
@@ -245,6 +219,7 @@ if runSplineTrendFilteringADMM
          ', k_2 = ', num2str(params.kSpline)], ...
         ['Knot spacing = ', num2str(params.knotSpacing)], ...
         ['Iterations = ', num2str(splineDiagnostics.iterations)]})
+
     xlabel('Time')
     ylabel('Signal')
 end
@@ -254,26 +229,20 @@ end
 % ========================================================================
 
 function yTrue = generateSignal(x, signalCase, customSignal)
-% generateSignal creates the true underlying signal.
-%
-% Inputs:
-%   x            : normalized time vector between 0 and 1
-%   signalCase   : selected signal type
-%   customSignal : user-defined function handle
-%
-% Output:
-%   yTrue        : noiseless signal
 
 switch lower(signalCase)
 
     case 'oscillatory_sqrt'
+
         yTrue = sqrt(x .* (1 - x)) .* ...
             sin((2 * pi * (1 + 0.05)) ./ (x + 0.05));
 
     case 'smooth_sine'
+
         yTrue = sin(2 * pi * x) + 0.50 * cos(6 * pi * x);
 
     case 'piecewise_trend'
+
         yTrue = zeros(size(x));
 
         firstRegion = x <= 0.30;
@@ -289,24 +258,19 @@ switch lower(signalCase)
             0.00 + 1.20 * (x(thirdRegion) - 0.70);
 
     case 'custom'
+
         yTrue = customSignal(x);
 
     otherwise
+
         error('Unknown signalCase. Please choose a valid signal option.')
 end
 
 yTrue = yTrue(:);
+
 end
 
 function D = createDifferenceMatrix(n, orderK)
-% createDifferenceMatrix creates a discrete difference matrix.
-%
-% Convention:
-%   orderK = 0 gives the first-difference matrix.
-%   orderK = 1 gives the second-difference matrix.
-%   orderK = 2 gives the third-difference matrix.
-%
-% This follows the convention used in the original code.
 
 if orderK < 0
     error('The difference order parameter must be nonnegative.')
@@ -321,14 +285,6 @@ D = diff(eye(n), orderK + 1);
 end
 
 function B = createCubicBSplineDesign(t, extendedKnots)
-% createCubicBSplineDesign creates the cubic B-spline design matrix.
-%
-% Inputs:
-%   t             : time vector
-%   extendedKnots : knot vector extended at the boundaries
-%
-% Output:
-%   B             : cubic B-spline design matrix
 
 numberOfObservations = length(t);
 numberOfIntervals = length(extendedKnots) - 1;
@@ -347,6 +303,7 @@ B1 = zeros(numberOfObservations, numberOfIntervals);
 
 for i = 1:numberOfObservations
     for j = 2:numberOfIntervals
+
         firstTerm = ...
             ((t(i) - extendedKnots(j - 1)) / ...
             (extendedKnots(j) - extendedKnots(j - 1))) * B0(i, j - 1);
@@ -363,6 +320,7 @@ B2 = zeros(numberOfObservations, numberOfIntervals);
 
 for i = 1:numberOfObservations
     for j = 3:numberOfIntervals
+
         firstTerm = ...
             ((t(i) - extendedKnots(j - 2)) / ...
             (extendedKnots(j) - extendedKnots(j - 2))) * B1(i, j - 1);
@@ -379,6 +337,7 @@ B3 = zeros(numberOfObservations, numberOfIntervals);
 
 for i = 1:numberOfObservations
     for j = 4:numberOfIntervals
+
         firstTerm = ...
             ((t(i) - extendedKnots(j - 3)) / ...
             (extendedKnots(j) - extendedKnots(j - 3))) * B2(i, j - 1);
@@ -391,7 +350,6 @@ for i = 1:numberOfObservations
     end
 end
 
-% Remove the first three boundary columns, as in the original code.
 B3(:, 1:3) = [];
 
 B = B3;
@@ -400,15 +358,6 @@ end
 
 function [trendFit, diagnostics] = estimateTrendFilteringADMM( ...
     y, DTrend, lambdaTrend, T, kTrend, rho, absTol, relTol, maxIterations)
-% estimateTrendFilteringADMM estimates the l1 trend filtering signal by ADMM.
-%
-% Objective:
-%   minimize 0.5 * ||y - alpha||_2^2 + ||A alpha||_1
-%
-% where:
-%   A = lambda_1 * T^k / factorial(k) * D
-%
-% This is equivalent to the scaling used in the original code.
 
 A = ((lambdaTrend * T^kTrend) / factorial(kTrend)) * DTrend;
 
@@ -430,22 +379,15 @@ for iteration = 1:maxIterations
 
     zOld = z;
 
-    % Alpha update:
-    % Solve a ridge-type least-squares problem.
     alpha = H \ (y + rho * A' * (z + u));
 
-    % Z update:
-    % Apply element-wise soft-thresholding.
     z = softThreshold(A * alpha - u, 1 / rho);
 
-    % Scaled dual update.
     u = u + z - A * alpha;
 
-    % ADMM residuals.
     primalResidual = z - A * alpha;
     dualResidual = -rho * A' * (z - zOld);
 
-    % ADMM stopping tolerances.
     primalTolerance = ...
         sqrt(numberOfPenaltyTerms) * absTol + ...
         relTol * max(norm(A * alpha), norm(z));
@@ -481,23 +423,7 @@ end
 
 function [splineFit, diagnostics] = estimateSplineTrendFilteringADMM( ...
     y, B, DTrend, DSpline, lambdaTrend, lambdaSpline, T, kTrend, ...
-    rho, absTol, relTol, maxIterations, betaUpdateSolver)
-% estimateSplineTrendFilteringADMM estimates the spline trend by ADMM.
-%
-% Model:
-%   y = r + B beta
-%
-% Objective:
-%   minimize 0.5 * ||r||_2^2
-%          + lambda_1 * ||D (y - r)||_1
-%          + lambda_2 * ||D_beta beta||_2^2
-%
-% subject to:
-%   r + B beta = y
-%
-% Important:
-%   The r-update is solved by CVX because it contains the nonsmooth
-%   trend-filtering penalty ||D(y-r)||_1.
+    rho, absTol, relTol, maxIterations)
 
 numberOfObservations = length(y);
 numberOfSplineCoefficients = size(B, 2);
@@ -513,22 +439,10 @@ dualResidualHistory = zeros(maxIterations, 1);
 primalToleranceHistory = zeros(maxIterations, 1);
 dualToleranceHistory = zeros(maxIterations, 1);
 
-% Matrix used by the closed-form beta update.
-betaSystemMatrix = rho * (B' * B) + 2 * lambdaSpline * (DSpline' * DSpline);
-
 for iteration = 1:maxIterations
 
     betaOld = beta;
 
-    % ---------------------------------------------------------------------
-    % r-update
-    % ---------------------------------------------------------------------
-    % This subproblem uses CVX:
-    %
-    % minimize 0.5 * ||r||_2^2
-    %        + lambda_1 * ||D(y-r)||_1
-    %        + rho/2 * ||r + B beta - y + u||_2^2
-    %
     cvx_begin quiet
         variable rCVX(numberOfObservations)
 
@@ -549,50 +463,28 @@ for iteration = 1:maxIterations
         r = rCVX;
     end
 
-    % ---------------------------------------------------------------------
-    % beta update
-    % ---------------------------------------------------------------------
-    % This subproblem can be solved either by closed form or by CVX.
-    %
-    % minimize lambda_2 * ||D_beta beta||_2^2
-    %        + rho/2 * ||r + B beta - y + u||_2^2
-    %
-    switch lower(betaUpdateSolver)
+    cvx_begin quiet
+        variable betaCVX(numberOfSplineCoefficients)
 
-        case 'closed_form'
-            rightHandSide = rho * B' * (y - r - u);
-            beta = betaSystemMatrix \ rightHandSide;
+        splinePenalty = lambdaSpline * sum_square(DSpline * betaCVX);
 
-        case 'cvx'
-            cvx_begin quiet
-                variable betaCVX(numberOfSplineCoefficients)
+        augmentedTerm = ...
+            (rho / 2) * sum_square(r + B * betaCVX - y + u);
 
-                splinePenalty = lambdaSpline * sum_square(DSpline * betaCVX);
+        minimize(splinePenalty + augmentedTerm)
+    cvx_end
 
-                augmentedTerm = ...
-                    (rho / 2) * sum_square(r + B * betaCVX - y + u);
-
-                minimize(splinePenalty + augmentedTerm)
-            cvx_end
-
-            if any(isnan(betaCVX)) || any(isinf(betaCVX))
-                warning('Invalid beta-update detected. Keeping the previous beta value.')
-            else
-                beta = betaCVX;
-            end
-
-        otherwise
-            error('Unknown betaUpdateSolver. Use closed_form or cvx.')
+    if any(isnan(betaCVX)) || any(isinf(betaCVX))
+        warning('Invalid beta-update detected. Keeping the previous beta value.')
+    else
+        beta = betaCVX;
     end
 
-    % Scaled dual update.
     u = u + r + B * beta - y;
 
-    % ADMM residuals.
     primalResidual = r + B * beta - y;
     dualResidual = rho * B * (beta - betaOld);
 
-    % ADMM stopping tolerances.
     primalTolerance = ...
         sqrt(numberOfObservations) * absTol + ...
         relTol * max([norm(r), norm(B * beta), norm(y)]);
@@ -629,10 +521,6 @@ diagnostics.residual = r;
 end
 
 function output = softThreshold(input, threshold)
-% softThreshold applies the element-wise soft-thresholding operator.
-%
-% This replaces MATLAB's wthresh function, so the code does not require
-% the Wavelet Toolbox.
 
 output = sign(input) .* max(abs(input) - threshold, 0);
 
