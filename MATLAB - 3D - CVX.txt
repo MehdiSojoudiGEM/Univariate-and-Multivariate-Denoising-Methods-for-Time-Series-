@@ -1,20 +1,3 @@
-%% clean_graph_time_series_trend_filtering_admm.m
-% -------------------------------------------------------------------------
-% Goal:
-%   Estimate smooth underlying trends for multivariate time series observed
-%   on the nodes of a graph.
-%
-% Methods:
-%   1. Graph-time l1 trend filtering solved directly by ADMM
-%   2. Graph-time spline trend filtering solved by ADMM
-%
-% Graph options:
-%   1. complete    : all node pairs are connected
-%   2. random      : edges are randomly selected
-%   3. correlation : edges are selected based on empirical correlation
-%
-% -------------------------------------------------------------------------
-
 clear
 clc
 close all
@@ -24,7 +7,7 @@ close all
 % -------------------------------------------------------------------------
 
 params.N = 3;
-params.T = 200;
+params.T = 400;
 
 params.kGraph = 0;
 params.kTrend = 1;
@@ -36,21 +19,14 @@ params.lambdaGraph = 0.001;
 params.lambdaTrend = 0.001;
 params.lambdaSpline = 0.001;
 
-params.rho = 1.20;
-params.absTol = 1e-4;
-params.relTol = 1e-2;
-params.maxIterations = 1000;
-
 params.noiseStd = 0.10;
 
 % Choose the graph structure.
 % Available options:
 %   'complete'    : all node pairs are connected at each time
-%   'random'      : each edge is active with probability params.edgeProbability
 %   'correlation' : each edge is active if abs(correlation) >= params.correlationThreshold
 params.graphMode = 'correlation';
 
-params.edgeProbability = 0.75;
 params.correlationThreshold = 0.50;
 
 % Choose the signal-generating function.
@@ -66,15 +42,9 @@ params.customSignal = @(x, N, T) repmat(sin(2 * pi * x), N, 1);
 % Choose which method to run.
 % Available options:
 %   {'all'}
-%   {'graph_trend_filtering_admm'}
-%   {'graph_spline_trend_filtering_admm'}
+%   {'graph_trend_filtering_cvx'}
+%   {'graph_spline_trend_filtering_cvx'}
 params.methodsToRun = {'all'};
-
-% Choose the beta update solver for the spline ADMM method.
-% Available options:
-%   'closed_form'
-%   'cvx'
-params.splineBetaUpdate = 'closed_form';
 
 %% ------------------------------------------------------------------------
 % 2. Generate multivariate noisy graph time series
@@ -123,7 +93,6 @@ graphTensor = createDynamicGraphPenaltyTensor( ...
     params.T, ...
     params.kGraph, ...
     params.graphMode, ...
-    params.edgeProbability, ...
     params.correlationThreshold, ...
     yNoisy);
 
@@ -141,11 +110,11 @@ splineTensor = kron(DSplineBase, eye(params.N));
 
 runGraphTrendFiltering = ...
     any(strcmp(params.methodsToRun, 'all')) || ...
-    any(strcmp(params.methodsToRun, 'graph_trend_filtering_admm'));
+    any(strcmp(params.methodsToRun, 'graph_trend_filtering_cvx'));
 
 runGraphSplineTrendFiltering = ...
     any(strcmp(params.methodsToRun, 'all')) || ...
-    any(strcmp(params.methodsToRun, 'graph_spline_trend_filtering_admm'));
+    any(strcmp(params.methodsToRun, 'graph_spline_trend_filtering_cvx'));
 
 trendFitMatrix = [];
 trendDiagnostics = [];
@@ -154,12 +123,12 @@ splineFitMatrix = [];
 splineDiagnostics = [];
 
 %% ------------------------------------------------------------------------
-% 6. Graph-time l1 trend filtering solved directly by ADMM
+% 6. Multiple trend filtering solved directly by CVX
 % -------------------------------------------------------------------------
 
 if runGraphTrendFiltering
 
-    [trendFitVector, trendDiagnostics] = estimateGraphTrendFilteringADMM( ...
+    [trendFitVector, trendDiagnostics] = estimateGraphTrendFilteringCVX( ...
         yVector, ...
         graphTensor, ...
         timeTensor, ...
@@ -168,25 +137,20 @@ if runGraphTrendFiltering
         params.N, ...
         params.T, ...
         params.kGraph, ...
-        params.kTrend, ...
-        params.rho, ...
-        params.absTol, ...
-        params.relTol, ...
-        params.maxIterations);
+        params.kTrend);
 
     trendFitMatrix = reshape(trendFitVector, params.N, params.T);
 
-    fprintf('Graph-time l1 trend filtering ADMM finished after %d iterations.\n', ...
-        trendDiagnostics.iterations)
+
 end
 
 %% ------------------------------------------------------------------------
-% 7. Graph-time spline trend filtering solved by ADMM
+% 7. Multiple spline trend filtering solved directly by CVX
 % -------------------------------------------------------------------------
 
 if runGraphSplineTrendFiltering
 
-    [splineFitVector, splineDiagnostics] = estimateGraphSplineTrendFilteringADMM( ...
+    [splineFitVector, splineDiagnostics] = estimateGraphSplineTrendFilteringCVX( ...
         yVector, ...
         BSpline, ...
         graphTensor, ...
@@ -198,17 +162,11 @@ if runGraphSplineTrendFiltering
         params.N, ...
         params.T, ...
         params.kGraph, ...
-        params.kTrend, ...
-        params.rho, ...
-        params.absTol, ...
-        params.relTol, ...
-        params.maxIterations, ...
-        params.splineBetaUpdate);
+        params.kTrend);
 
     splineFitMatrix = reshape(splineFitVector, params.N, params.T);
 
-    fprintf('Graph-time spline trend filtering ADMM finished after %d iterations.\n', ...
-        splineDiagnostics.iterations)
+
 end
 
 %% ------------------------------------------------------------------------
@@ -217,7 +175,7 @@ end
 
 colors = {'r', 'b', 'g', 'k', 'c', 'm', 'y'};
 
-figure('Color', 'w', 'Position', [100 100 1400 550])
+figure('Color', 'w', 'Position', [100 100 1400 550]);
 
 numberOfPlots = runGraphTrendFiltering + runGraphSplineTrendFiltering;
 plotCounter = 1;
@@ -231,7 +189,7 @@ if runGraphTrendFiltering
         yNoisy, ...
         trendFitMatrix, ...
         colors, ...
-        'Graph-Time l1 Trend Filtering using ADMM')
+        'Multiple Trend Filtering using CVX')
 
     plotCounter = plotCounter + 1;
 end
@@ -245,10 +203,10 @@ if runGraphSplineTrendFiltering
         yNoisy, ...
         splineFitMatrix, ...
         colors, ...
-        'Graph-Time Spline Trend Filtering using ADMM')
+        'Multiple Spline Trend Filtering using CVX')
 end
 
-figure('Color', 'w', 'Position', [100 100 700 500])
+figure('Color', 'w', 'Position', [100 100 700 500]);
 plotTrueGraphSignals3D(timeVector, yTrue, colors, 'True Functions Without Noise')
 
 %% ========================================================================
@@ -423,7 +381,7 @@ B = B3;
 end
 
 function graphTensor = createDynamicGraphPenaltyTensor( ...
-    N, T, kGraph, graphMode, edgeProbability, correlationThreshold, yNoisy)
+    N, T, kGraph, graphMode, correlationThreshold, yNoisy)
 
 numberOfPossibleEdges = N * (N - 1) / 2;
 
@@ -453,7 +411,6 @@ for timeIndex = 1:T
     incidenceMatrix = createIncidenceMatrix( ...
         N, ...
         graphMode, ...
-        edgeProbability, ...
         correlationThreshold, ...
         correlationMatrix);
 
@@ -479,7 +436,7 @@ end
 end
 
 function incidenceMatrix = createIncidenceMatrix( ...
-    N, graphMode, edgeProbability, correlationThreshold, correlationMatrix)
+    N, graphMode, correlationThreshold, correlationMatrix)
 
 numberOfPossibleEdges = N * (N - 1) / 2;
 incidenceMatrix = zeros(numberOfPossibleEdges, N);
@@ -495,10 +452,6 @@ for sourceNode = 1:N-1
 
                 isActive = true;
 
-            case 'random'
-
-                isActive = rand <= edgeProbability;
-
             case 'correlation'
 
                 isActive = ...
@@ -506,7 +459,7 @@ for sourceNode = 1:N-1
 
             otherwise
 
-                error('Unknown graphMode. Use complete, random, or correlation.')
+                error('Unknown graphMode. Use complete or correlation.')
         end
 
         if isActive
@@ -520,9 +473,9 @@ end
 
 end
 
-function [trendFitVector, diagnostics] = estimateGraphTrendFilteringADMM( ...
+function [trendFitVector, diagnostics] = estimateGraphTrendFilteringCVX( ...
     yVector, graphTensor, timeTensor, lambdaGraph, lambdaTrend, ...
-    N, T, kGraph, kTrend, rho, absTol, relTol, maxIterations)
+    N, T, kGraph, kTrend)
 
 graphScale = lambdaGraph * (N^kGraph) / factorial(kGraph);
 timeScale = lambdaTrend * (T^kTrend) / factorial(kTrend);
@@ -531,69 +484,27 @@ A = [graphScale * graphTensor;
      timeScale * timeTensor];
 
 numberOfObservations = length(yVector);
-numberOfPenaltyTerms = size(A, 1);
 
-alpha = zeros(numberOfObservations, 1);
-z = zeros(numberOfPenaltyTerms, 1);
-u = zeros(numberOfPenaltyTerms, 1);
+cvx_begin quiet
+    variable alphaCVX(numberOfObservations)
 
-systemMatrix = eye(numberOfObservations) + rho * (A' * A);
+    dataTerm = 0.5 * sum_square(alphaCVX - yVector);
 
-primalResidualHistory = zeros(maxIterations, 1);
-dualResidualHistory = zeros(maxIterations, 1);
-primalToleranceHistory = zeros(maxIterations, 1);
-dualToleranceHistory = zeros(maxIterations, 1);
+    penaltyTerm = norm(A * alphaCVX, 1);
 
-for iteration = 1:maxIterations
+    minimize(dataTerm + penaltyTerm)
+cvx_end
 
-    zOld = z;
+trendFitVector = alphaCVX;
 
-    alphaprim = systemMatrix \ (yVector + rho * A' * (z + u));
-
-    z = softThreshold(A * alphaprim - u, 1 / rho);
-
-    u = u + z - A * alphaprim;
-
-    primalResidual = z - A * alphaprim;
-    dualResidual = -rho * A' * (z - zOld);
-
-    primalTolerance = ...
-        sqrt(numberOfPenaltyTerms) * absTol + ...
-        relTol * max(norm(A * alphaprim), norm(z));
-
-    dualTolerance = ...
-        sqrt(numberOfObservations) * absTol + ...
-        relTol * norm(rho * A' * u);
-
-    primalResidualHistory(iteration) = norm(primalResidual);
-    dualResidualHistory(iteration) = norm(dualResidual);
-    primalToleranceHistory(iteration) = primalTolerance;
-    dualToleranceHistory(iteration) = dualTolerance;
-
-    if norm(primalResidual) <= primalTolerance && ...
-            norm(dualResidual) <= dualTolerance
-        break
-    end
-end
-
-if iteration == maxIterations
-    warning('Graph-time l1 trend filtering ADMM reached maxIterations.')
-end
-
-trendFitVector = alphaprim;
-
-diagnostics.iterations = iteration;
-diagnostics.primalResidual = primalResidualHistory(1:iteration);
-diagnostics.dualResidual = dualResidualHistory(1:iteration);
-diagnostics.primalTolerance = primalToleranceHistory(1:iteration);
-diagnostics.dualTolerance = dualToleranceHistory(1:iteration);
+diagnostics.cvxStatus = cvx_status;
+diagnostics.cvxOptimalValue = cvx_optval;
 
 end
 
-function [splineFitVector, diagnostics] = estimateGraphSplineTrendFilteringADMM( ...
+function [splineFitVector, diagnostics] = estimateGraphSplineTrendFilteringCVX( ...
     yVector, BSpline, graphTensor, timeTensor, splineTensor, ...
-    lambdaGraph, lambdaTrend, lambdaSpline, N, T, kGraph, kTrend, ...
-    rho, absTol, relTol, maxIterations, betaUpdateSolver)
+    lambdaGraph, lambdaTrend, lambdaSpline, N, T, kGraph, kTrend)
 
 numberOfObservations = length(yVector);
 numberOfSplineCoefficients = size(BSpline, 2);
@@ -604,120 +515,28 @@ timeScale = lambdaTrend * (T^kTrend) / factorial(kTrend);
 graphPenaltyMatrix = graphScale * graphTensor;
 timePenaltyMatrix = timeScale * timeTensor;
 
-r = zeros(numberOfObservations, 1);
-beta = zeros(numberOfSplineCoefficients, 1);
-u = zeros(numberOfObservations, 1);
+cvx_begin quiet
+    variable betaCVX(numberOfSplineCoefficients)
+    expression fittedSignal(numberOfObservations)
 
-betaSystemMatrix = ...
-    rho * (BSpline' * BSpline) + ...
-    2 * lambdaSpline * (splineTensor' * splineTensor);
+    fittedSignal = BSpline * betaCVX;
 
-primalResidualHistory = zeros(maxIterations, 1);
-dualResidualHistory = zeros(maxIterations, 1);
-primalToleranceHistory = zeros(maxIterations, 1);
-dualToleranceHistory = zeros(maxIterations, 1);
+    dataTerm = 0.5 * sum_square(fittedSignal - yVector);
 
-for iteration = 1:maxIterations
+    graphPenalty = norm(graphPenaltyMatrix * fittedSignal, 1);
 
-    betaOld = beta;
+    timePenalty = norm(timePenaltyMatrix * fittedSignal, 1);
 
-    cvx_begin quiet
-        variable rCVX(numberOfObservations)
+    splinePenalty = lambdaSpline * sum_square(splineTensor * betaCVX);
 
-        dataTerm = 0.5 * sum_square(rCVX);
+    minimize(dataTerm + graphPenalty + timePenalty + splinePenalty)
+cvx_end
 
-        graphPenalty = norm(graphPenaltyMatrix * (yVector - rCVX), 1);
+splineFitVector = BSpline * betaCVX;
 
-        timePenalty = norm(timePenaltyMatrix * (yVector - rCVX), 1);
-
-        augmentedTerm = ...
-            (rho / 2) * sum_square(rCVX + BSpline * beta - yVector + u);
-
-        minimize(dataTerm + graphPenalty + timePenalty + augmentedTerm)
-    cvx_end
-
-    if any(isnan(rCVX)) || any(isinf(rCVX))
-        warning('Invalid r-update detected. Keeping previous r.')
-    else
-        r = rCVX;
-    end
-
-    switch lower(betaUpdateSolver)
-
-        case 'closed_form'
-
-            rightHandSide = rho * BSpline' * (yVector - r - u);
-            beta = betaSystemMatrix \ rightHandSide;
-
-        case 'cvx'
-
-            cvx_begin quiet
-                variable betaCVX(numberOfSplineCoefficients)
-
-                splinePenalty = ...
-                    lambdaSpline * sum_square(splineTensor * betaCVX);
-
-                augmentedTerm = ...
-                    (rho / 2) * ...
-                    sum_square(r + BSpline * betaCVX - yVector + u);
-
-                minimize(splinePenalty + augmentedTerm)
-            cvx_end
-
-            if any(isnan(betaCVX)) || any(isinf(betaCVX))
-                warning('Invalid beta-update detected. Keeping previous beta.')
-            else
-                beta = betaCVX;
-            end
-
-        otherwise
-
-            error('Unknown betaUpdateSolver. Use closed_form or cvx.')
-    end
-
-    u = u + r + BSpline * beta - yVector;
-
-    primalResidual = r + BSpline * beta - yVector;
-    dualResidual = rho * BSpline * (beta - betaOld);
-
-    primalTolerance = ...
-        sqrt(numberOfObservations) * absTol + ...
-        relTol * max([norm(r), norm(BSpline * beta), norm(yVector)]);
-
-    dualTolerance = ...
-        sqrt(numberOfObservations) * absTol + ...
-        relTol * norm(rho * u);
-
-    primalResidualHistory(iteration) = norm(primalResidual);
-    dualResidualHistory(iteration) = norm(dualResidual);
-    primalToleranceHistory(iteration) = primalTolerance;
-    dualToleranceHistory(iteration) = dualTolerance;
-
-    if norm(primalResidual) <= primalTolerance && ...
-            norm(dualResidual) <= dualTolerance
-        break
-    end
-end
-
-if iteration == maxIterations
-    warning('Graph-time spline trend filtering ADMM reached maxIterations.')
-end
-
-splineFitVector = BSpline * beta;
-
-diagnostics.iterations = iteration;
-diagnostics.primalResidual = primalResidualHistory(1:iteration);
-diagnostics.dualResidual = dualResidualHistory(1:iteration);
-diagnostics.primalTolerance = primalToleranceHistory(1:iteration);
-diagnostics.dualTolerance = dualToleranceHistory(1:iteration);
-diagnostics.beta = beta;
-diagnostics.residual = r;
-
-end
-
-function output = softThreshold(input, threshold)
-
-output = sign(input) .* max(abs(input) - threshold, 0);
+diagnostics.cvxStatus = cvx_status;
+diagnostics.cvxOptimalValue = cvx_optval;
+diagnostics.beta = betaCVX;
 
 end
 
