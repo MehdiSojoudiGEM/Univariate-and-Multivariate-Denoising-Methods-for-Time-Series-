@@ -86,7 +86,7 @@ Therefore, some ADMM Spline versions still require CVX or CVXPY.
 Files
 -----
 
-The main files are:
+The main codes are:
 
     2D - ADMM.txt      Univariate MATLAB ADMM code 
     2D - CVX.txt       Univariate MATLAB CVX code
