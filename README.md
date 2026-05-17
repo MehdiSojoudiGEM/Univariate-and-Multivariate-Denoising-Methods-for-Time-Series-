@@ -52,26 +52,6 @@ The codes estimate the trend using two methods:
 l1 trend filtering estimates a piecewise-smooth trend by penalizing finite differences of the signal. This method was developed by Seung-Jean Kim, Kwangmoo Koh, Stephen Boyd, and Dimitry Gorinevsky in their influential paper, “l1 Trend Filtering,” published in SIAM Review in 2009. We include an implementation of this method to compare it with our approach, Spline trend filtering.
 
 
-ADMM, CVX, and CVXPY
---------------------
-
-ADMM stands for Alternating Direction Method of Multipliers. It solves difficult optimization problems by splitting them into simpler subproblems.
-
-In this repository:
-
-- l1 trend filtering is solved directly by ADMM.
-- The ADMM signal update is a closed-form linear system step.
-- The l1 penalty is handled by soft-thresholding.
-- The l1 ADMM part does not require CVX.
-
-For Spline trend filtering, some subproblems contain nonsmooth l1 penalties. These subproblems are solved using:
-
-- CVX in MATLAB
-- CVXPY in Python
-
-Therefore, some ADMM Spline versions still require CVX or CVXPY.
-
-
 Files
 -----
 
@@ -79,22 +59,22 @@ The main codes are:
 
     2D - ADMM.txt      Univariate MATLAB ADMM code 
     2D - CVX.txt       Univariate MATLAB CVX code
-    3D - ADMM.txt      Graph-time MATLAB ADMM code
-    3D - CVX.txt       Graph-time MATLAB CVX code
+    3D - ADMM.txt      Multiple MATLAB ADMM code
+    3D - CVX.txt       Multiple MATLAB CVX code
     2d - ADMM.txt      Univariate Python ADMM/CVXPY code
-    3d - ADMM.txt      Graph-time Python ADMM/CVXPY code
+    3d - ADMM.txt      Multiple Python ADMM/CVXPY code
     Greenium.txt       German twin-bond greenium denoising code
 
 The 2D files are for univariate time series.
 
-The 3D files are for graph-time or multivariate time series.
+The 3D files are for multivariate time series.
 
 Every single code includes both l1 trend filtering and Spline trend filtering.
 
-Graph-time setting
+Multiple (graph-time) settings
 ------------------
 
-In the graph-time codes, the data are stored as an N x T matrix:
+In the multiple codes, the data are stored as an N x T matrix:
 
     N = number of nodes
     T = number of time observations
@@ -111,7 +91,7 @@ The methods use:
 Graph construction options
 --------------------------
 
-The graph-time codes allow two choices to connect the nodes.
+The multiple codes allow two choices to connect the nodes.
 
 1. Complete graph
 
@@ -150,7 +130,7 @@ Main parameters
     MATLAB:  params.T = 200;
     Python:  params["T"] = 200
 
-2- Number of nodes, only for graph-time codes:
+2- Number of nodes, only for multiple codes:
 
     MATLAB:  params.N = 3;
     Python:  params["N"] = 3
@@ -276,7 +256,7 @@ For univariate codes, typical signal options are:
     piecewise_trend
     custom
 
-For graph-time codes, typical signal options are:
+For multiple codes, typical signal options are:
 
     three_node_original
     smooth_sine_family
@@ -288,7 +268,7 @@ For a custom univariate MATLAB signal:
     params.signalCase = 'custom';
     params.customSignal = @(x) 0.50 * sin(4 * pi * x) + 0.25 * x;
 
-For a custom graph-time MATLAB signal, the function must return an N x T matrix:
+For a custom multiple MATLAB signal, the function must return an N x T matrix:
 
     params.signalCase = 'custom';
     params.customSignal = @(x, N, T) repmat(sin(2 * pi * x), N, 1);
@@ -312,11 +292,11 @@ To run only univariate Spline trend filtering ADMM:
 
     params.methodsToRun = {'Spline_trend_filtering_admm'};
 
-To run only graph-time l1 trend filtering ADMM:
+To run only multiple l1 trend filtering ADMM:
 
     params.methodsToRun = {'graph_trend_filtering_admm'};
 
-To run only graph-time Spline trend filtering ADMM:
+To run only multiple Spline trend filtering ADMM:
 
     params.methodsToRun = {'graph_Spline_trend_filtering_admm'};
 
@@ -370,7 +350,7 @@ Each script produces plots comparing:
 2. The noisy signal
 3. The estimated trend
 
-For graph-time codes, the output is usually a 3D plot:
+For multiple codes, the output is usually a 3D plot:
 
     x-axis = time
     y-axis = node
