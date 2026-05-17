@@ -51,17 +51,6 @@ The codes estimate the trend using two methods:
 
 l1 trend filtering estimates a piecewise-smooth trend by penalizing finite differences of the signal. This method was developed by Seung-Jean Kim, Kwangmoo Koh, Stephen Boyd, and Dimitry Gorinevsky in their influential paper, “l1 Trend Filtering,” published in SIAM Review in 2009. We include an implementation of this method to compare it with our approach, Spline trend filtering.
 
-The difference-order convention is:
-
-    k = 0  first differences
-    k = 1  second differences
-    k = 2  third differences
-
-Spline trend filtering combines l1 trend filtering with cubic Spline methods.
-
-
-At the same time, a regularization is applied to the Spline coefficients in a way similar to l1 trend filtering, allowing the method to capture smooth trends while preserving possible structural changes.
-
 
 ADMM, CVX, and CVXPY
 --------------------
