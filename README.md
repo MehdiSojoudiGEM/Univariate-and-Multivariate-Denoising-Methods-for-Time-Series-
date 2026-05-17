@@ -7,7 +7,7 @@ by Mahdi Sojoudi, Gareth W. Peters, Carole Bernard, and Meysam Sojoudi.
 
 
 
-The paper introduces a new trend-extraction method for univariate time series, called **Spline trend filtering**. This approach combines ideas from l1 trend filtering and cubic Spline-based graduation techniques, while reducing the ill-conditioning issues that can arise in these methods. The paper then extends both l1 trend filtering and Spline trend filtering to multiple time series, allowing several interconnected series to be denoised jointly while preserving their structural relationships.
+The paper introduces a new trend-extraction method for univariate time series, called **Spline trend filtering**. This approach combines ideas from l1 trend filtering and cubic Spline-based graduation techniques, while reducing the ill-conditioning issues that can arise in these methods. The paper then extends both l1 trend filtering and Spline trend filtering to multiple time series, allowing several interconnected series to be denoised jointly while preserving their structural relationships. These methods constitute the main novelty of the paper and are called **Multiple Trend Filtering** and **Multiple Spline Trend Filtering**.
 
 To handle large-scale applications, the proposed estimators are implemented using the **Alternating Direction Method of Multipliers (ADMM)**. The empirical application focuses on the German federal twin-bond market and uses the proposed denoising methods to estimate the greenium. The results provide evidence of a negative greenium, suggesting that investors in Germany are willing to accept lower yields to support environmental objectives.
 
