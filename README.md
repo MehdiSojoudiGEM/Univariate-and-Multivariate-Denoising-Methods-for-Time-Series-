@@ -7,7 +7,7 @@ by Mahdi Sojoudi, Gareth W. Peters, Carole Bernard, and Meysam Sojoudi.
 
 
 
-The paper introduces a new trend-extraction method for univariate time series, called **Spline trend filtering**. This approach combines ideas from l1 trend filtering and cubic spline-based graduation techniques, while reducing the ill-conditioning issues that can arise in these methods. The paper then extends both l1 trend filtering and Spline trend filtering to multiple time series, allowing several interconnected series to be denoised jointly while preserving their structural relationships.
+The paper introduces a new trend-extraction method for univariate time series, called **Spline trend filtering**. This approach combines ideas from l1 trend filtering and cubic Spline-based graduation techniques, while reducing the ill-conditioning issues that can arise in these methods. The paper then extends both l1 trend filtering and Spline trend filtering to multiple time series, allowing several interconnected series to be denoised jointly while preserving their structural relationships.
 
 To handle large-scale applications, the proposed estimators are implemented using the **Alternating Direction Method of Multipliers (ADMM)**. The empirical application focuses on the German federal twin-bond market and uses the proposed denoising methods to estimate the greenium. The results provide evidence of a negative greenium, suggesting that investors in Germany are willing to accept lower yields to support environmental objectives.
 
@@ -57,10 +57,10 @@ The difference-order convention is:
     k = 1  second differences
     k = 2  third differences
 
-Spline trend filtering combines l1 trend filtering with cubic spline methods.
+Spline trend filtering combines l1 trend filtering with cubic Spline methods.
 
 
-At the same time, a regularization is applied to the spline coefficients in a way similar to l1 trend filtering, allowing the method to capture smooth trends while preserving possible structural changes.
+At the same time, a regularization is applied to the Spline coefficients in a way similar to l1 trend filtering, allowing the method to capture smooth trends while preserving possible structural changes.
 
 
 ADMM, CVX, and CVXPY
@@ -75,12 +75,12 @@ In this repository:
 - The l1 penalty is handled by soft-thresholding.
 - The l1 ADMM part does not require CVX.
 
-For spline trend filtering, some subproblems contain nonsmooth l1 penalties. These subproblems are solved using:
+For Spline trend filtering, some subproblems contain nonsmooth l1 penalties. These subproblems are solved using:
 
 - CVX in MATLAB
 - CVXPY in Python
 
-Therefore, some ADMM spline versions still require CVX or CVXPY.
+Therefore, some ADMM Spline versions still require CVX or CVXPY.
 
 
 Files
@@ -189,7 +189,7 @@ Default parameter values for the difference-order convention:
     Python:
         params["k_graph"]  = 0
         params["k_trend"]  = 1
-        params["k_spline"] = 1
+        params["k_Spline"] = 1
 
 For example: 
 
@@ -200,7 +200,7 @@ For example:
         Second-order temporal differences for trend filtering.
 
     kSpline = 1
-        Second-order differences for spline regularization.
+        Second-order differences for Spline regularization.
 
 
 
@@ -214,10 +214,10 @@ For example:
     Python:
         params["lambda_graph"]  = 0.001
         params["lambda_trend"]  = 0.001
-        params["lambda_spline"] = 0.001
+        params["lambda_Spline"] = 0.001
 
 
-6- Knot spacing for the spline basis:
+6- Knot spacing for the Spline basis:
 
     MATLAB:  params.knotSpacing = 5;
     Python:  params["knot_spacing"] = 5
@@ -261,7 +261,7 @@ Available options:
 
     'all'
     'graph_trend_filtering_admm'
-    'graph_spline_trend_filtering_admm'
+    'graph_Spline_trend_filtering_admm'
 
 10- ADMM parameters: The following ADMM parameters are used, following the recommendations in the "Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers" paper by Boyd et al.:
 
@@ -319,17 +319,17 @@ To run only univariate l1 trend filtering ADMM:
 
     params.methodsToRun = {'trend_filtering_admm'};
 
-To run only univariate spline trend filtering ADMM:
+To run only univariate Spline trend filtering ADMM:
 
-    params.methodsToRun = {'spline_trend_filtering_admm'};
+    params.methodsToRun = {'Spline_trend_filtering_admm'};
 
 To run only graph-time l1 trend filtering ADMM:
 
     params.methodsToRun = {'graph_trend_filtering_admm'};
 
-To run only graph-time spline trend filtering ADMM:
+To run only graph-time Spline trend filtering ADMM:
 
-    params.methodsToRun = {'graph_spline_trend_filtering_admm'};
+    params.methodsToRun = {'graph_Spline_trend_filtering_admm'};
 
 
 How to run the codes
@@ -341,7 +341,7 @@ How to run the codes
 MATLAB Requirements
 ------
 
-Install CVX if you want to run the CVX-based parts or the spline ADMM parts.
+Install CVX if you want to run the CVX-based parts or the Spline ADMM parts.
 
 CVX website:
 
@@ -370,7 +370,7 @@ Then run the Python codes:
     python 2d-ADMM.py
     python 3d-ADMM.py
 
-The Python spline versions use CVXPY, so cvxpy must be installed.
+The Python Spline versions use CVXPY, so cvxpy must be installed.
 
 Output
 ------
@@ -433,6 +433,6 @@ The script produces:
 
 1. A 3D surface plot of the original greenium.
 2. A 3D surface plot of the estimated trend.
-3. A 3D surface plot of the estimated spline trend.
-4. Two 2D time-series plots comparing the estimated trend and spline trend across bonds.
+3. A 3D surface plot of the estimated Spline trend.
+4. Two 2D time-series plots comparing the estimated trend and Spline trend across bonds.
 
