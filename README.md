@@ -14,7 +14,7 @@ To handle large-scale applications, the proposed estimators are implemented usin
 ## Key points
 
 - A new method, **Spline trend filtering**, is introduced for trend extraction in univariate time series.
-- Both l1 trend filtering and Spline trend filtering are extended to multiple interconnected time series.
+- Both l1 trend filtering and Spline trend filtering are extended to multiple interconnected time series, leading to two new methods: **Multiple Trend Filtering** and **Multiple Spline Trend Filtering**.
 - The optimization is implemented using **ADMM** to handle larger datasets efficiently.
 - The empirical application estimates the greenium in the German federal twin-bond market.
 - The results provide evidence of a negative greenium in German twin bonds.
