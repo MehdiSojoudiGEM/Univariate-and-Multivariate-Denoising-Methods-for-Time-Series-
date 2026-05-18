@@ -134,14 +134,9 @@ Main parameters
     Python:  params["noise_std"] = 0.10
 
 
-4- Difference-order convention: The parameter k controls the order of the finite-difference operator used in
-the regularization terms:
+4- Difference-order convention:
 
-    k = 0   first differences
-    k = 1   second differences
-    k = 2   third differences
-
-Default parameter values for the difference-order convention:
+The parameter k controls the order of the finite-difference operator used in the regularization terms:
 
     MATLAB:
         params.kGraph  = 0;
@@ -153,17 +148,19 @@ Default parameter values for the difference-order convention:
         params["k_trend"]  = 1
         params["k_Spline"] = 1
 
-For example: 
+In the 2D versions, two difference-order parameters are used:
 
-    kGraph  = 0
-        First-order graph differences across connected nodes.
+    params.kTrend: Difference order for l1 trend filtering
+    params.kSpline: Difference order for the spline penalty
 
-    kTrend  = 1
-        Second-order temporal differences for trend filtering.
+In the 3D graph-time versions, three difference-order parameters are used:
 
-    kSpline = 1
-        Second-order differences for Spline regularization.
+    params.kGraph: Difference order for the graph penalty
+    params.kTrend: Difference order for l1 trend filtering
+    params.kSpline: Difference order for the spline penalty
 
+
+All difference-order parameters can take values  0, 1, 2, 3, ...
 
 
 5- Regularization parameters: Larger regularization parameters produce smoother estimates.
