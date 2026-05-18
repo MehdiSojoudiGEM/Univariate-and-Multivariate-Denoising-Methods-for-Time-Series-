@@ -74,10 +74,10 @@ In the multiple codes, the data are stored as an N x T matrix:
 
 The methods use:
 
-1. Temporal structure
+1. Temporal structure:
    Each node has its own time series and should be smooth over time.
 
-2. Graph structure
+2. Graph structure:
    The denoising procedure incorporates the connections between nodes during the estimation process, allowing the graph structure to guide the trend reconstruction over time.
 
 
