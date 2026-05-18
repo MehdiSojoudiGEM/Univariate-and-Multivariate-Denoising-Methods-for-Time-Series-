@@ -192,11 +192,14 @@ In the 3D graph-time versions, three regularization parameters are used:
 
 All regularization parameters can take non-negative values in [0,inf], such as: 0, 0.001, 0.01, 0.5, 15, ...
 
-6- Knot spacing for the Spline basis:
+6- The knot-spacing parameter controls the distance between adjacent knots in the Spline basis. 
 
     MATLAB:  params.knotSpacing = 5;
     Python:  params["knot_spacing"] = 5
 
+    
+It usually takes positive integer values: 1, 2, 3, 4, 5, ...
+    
 7- Graph construction options:
 
     MATLAB:  params.graphMode = 'correlation';
