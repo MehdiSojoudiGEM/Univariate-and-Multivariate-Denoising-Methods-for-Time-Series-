@@ -44,13 +44,6 @@ The goal is to recover a smooth hidden trend from noisy observations:
 
     observed signal = true trend + noise
 
-The codes estimate the trend using two methods:
-
-1. l1 trend filtering
-2. Spline trend filtering
-
-l1 trend filtering estimates a piecewise-smooth trend by penalizing finite differences of the signal. This method was developed by Seung-Jean Kim, Kwangmoo Koh, Stephen Boyd, and Dimitry Gorinevsky in their influential paper, “l1 Trend Filtering,” published in SIAM Review in 2009. We include an implementation of this method to compare it with our approach, Spline trend filtering.
-
 
 Files
 -----
