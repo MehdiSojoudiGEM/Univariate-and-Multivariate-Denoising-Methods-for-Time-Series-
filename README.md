@@ -314,13 +314,6 @@ CVX website:
 
 Then, follow the guidelines on the website to install the CVX package on your MATLAB.
 
-   
-Then run the MATLAB codes, for example:
-
-    run('2D- ADMM.m')
-    run('2D- CVX.m')
-    run('3D- ADMM.m')
-    run('3D- CVX.m')
 
 
 Python Requirements
@@ -328,14 +321,8 @@ Python Requirements
 
 Install Python packages:
 
-    math numpy scipy matplotlib cvxpy
+    math numpy matplotlib cvxpy
 
-Then run the Python codes:
-
-    python 2d-ADMM.py
-    python 3d-ADMM.py
-
-The Python Spline versions use CVXPY, so cvxpy must be installed.
 
 Output
 ------
@@ -358,10 +345,10 @@ Notes
 -----
 
 - Use ADMM versions when scalability is important.
-- Use CVX or CVXPY versions for smaller datasets when faster direct convex optimization is preferred.
+- Use CVX versions for smaller datasets when faster direct convex optimization is preferred.
 - Larger regularization parameters produce smoother estimates.
 - Larger difference orders produce smoother estimates.
-- 
+
 
 Real-data green bond application
 --------------------------------
@@ -372,27 +359,12 @@ The code uses three Excel files:
 
     Green.xlsx
     NoNGreen.xlsx
-    Dates Green.xlsx
+    Dates.xlsx
 
 The greenium is computed as:
 
     greenium = 100 * (green bond yield - non-green bond yield)
 
-The code follows an expanding-window structure. At the beginning, only one bond is active. Then, as more bonds become available, the number of active bonds increases from 1 to 8.
-
-
-
-The connections between the bonds are directly from the data using one of two options:
-
-    graph_mode = "complete"
-    graph_mode = "correlation"
-
-The default option is:
-
-    graph_mode = "correlation"
-    correlation_threshold = 0.50
-
-This means that two bonds are connected if the absolute correlation between their greenium series is at least 0.50.
 
 The script produces:
 
