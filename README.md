@@ -136,7 +136,7 @@ Main parameters
 
 4- Difference-order convention:
 
-The parameter k controls the order of the finite-difference operator used in the regularization terms:
+The parameter k controls the order of the finite-difference operator used in the regularization terms. Larger parameters produce smoother estimates. 
 
     MATLAB:
         params.kGraph  = 0;
