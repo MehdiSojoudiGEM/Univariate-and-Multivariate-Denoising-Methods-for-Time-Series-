@@ -55,7 +55,7 @@ The main codes are:
     3D-Matlab-ADMM.txt      Multiple MATLAB ADMM code
     3D-MATLAB-CVX.txt       Multiple MATLAB CVX code
     2D-Python-ADMM.txt      Univariate Python ADMM code
-    2D-Python-ADMM.txt      Multiple Python ADMM code
+    3D-Python-ADMM.txt      Multiple Python ADMM code
     Greenium.txt            German twin-bond greenium denoising code
 
 The 2D files are for univariate time series.
