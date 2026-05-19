@@ -23,13 +23,13 @@ import numpy as np
 
 params: Dict = {}
 
-params["T"] = 1000                         # Length of the time series
+params["T"] = 500                         # Length of the time series
 params["noise_std"] = 0.10                 # Noise level
 
 params["k_trend"] = 1                      # Difference order for l1 trend filtering
 params["k_spline"] = 2                     # Difference order for spline penalty
 
-params["lambda_trend"] = 0.1             # Tuning parameter for l1 trend filtering
+params["lambda_trend"] = 0.001             # Tuning parameter for l1 trend filtering
 params["lambda_spline"] = 0.1            # Tuning parameter for spline smoothness
 
 params["knot_spacing"] = 8                 # Distance between two adjacent knots
