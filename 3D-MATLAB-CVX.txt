@@ -34,11 +34,11 @@ params.correlationThreshold = 0.20;
 
 % Choose the signal-generating function.
 % Available options:
-%   'three_node_original'
+%   'three_nodes'
 %   'smooth_sine_family'
 %   'piecewise_family'
 %   'custom'
-params.signalCase = 'three_node_original';
+params.signalCase = 'three_nodes';
 
 params.customSignal = @(x, N, T) repmat(sin(2 * pi * x), N, 1);
 
