@@ -1088,3 +1088,43 @@ with pd.ExcelWriter(output_file) as writer:
     )
 
 print(f"Saved output to: {output_file}")
+
+
+
+
+# ============================================================
+# Mean greenium report for each bond pair
+# ============================================================
+
+mean_greenium_rows = []
+
+for pair_index in range(yprim_green_full_plot.shape[0]):
+
+    original_series = yprim_green_full_plot[pair_index, :]
+    trend_series = full_trend[pair_index, :]
+    spline_series = full_spline[pair_index, :]
+
+    mean_greenium_rows.append(
+        {
+            "Pair": pair_index + 1,
+            "Green_ISIN": green_isins[pair_index],
+            "Non_Green_ISIN": non_green_isins[pair_index],
+            "Mean_Original_Greenium": np.nanmean(original_series),
+            "Mean_Trend_Filtering_Greenium": np.nanmean(trend_series),
+            "Mean_Spline_Trend_Filtering_Greenium": np.nanmean(spline_series),
+            "Number_of_Original_Observations": np.sum(np.isfinite(original_series)),
+            "Number_of_Trend_Observations": np.sum(np.isfinite(trend_series)),
+            "Number_of_Spline_Observations": np.sum(np.isfinite(spline_series)),
+        }
+    )
+
+mean_greenium_report = pd.DataFrame(mean_greenium_rows)
+
+print("\n============================================================")
+print("Mean greenium by green/non-green bond pair")
+print("============================================================")
+
+pd.set_option("display.max_columns", None)
+pd.set_option("display.width", 200)
+
+print(mean_greenium_report.to_string(index=False))
